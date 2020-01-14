@@ -24,10 +24,13 @@ export function create(info: tss.server.PluginCreateInfo): tss.LanguageService {
 
   return new Proxy(info.languageService, {
     get(target, p, receiver) {
+      console.log('###1')
       if (p === 'getSemanticDiagnostics') {
+        console.log('###2')
         return function getSemanticDiagnostics(
           fileName: string,
         ): tss.Diagnostic[] {
+          console.log('###3')
           let origin_diagnostics = target.getSemanticDiagnostics(fileName);
 
           const program = info.languageService.getProgram();
@@ -36,16 +39,20 @@ export function create(info: tss.server.PluginCreateInfo): tss.LanguageService {
             config.tags,
           );
 
+          console.log('###4')
           const source_file = program.getSourceFile(fileName);
           const nodes: tss.TaggedTemplateExpression[] = find_all_nodes(
             source_file,
             n =>
               n.kind === tss.SyntaxKind.TaggedTemplateExpression &&
-              (n as tss.TaggedTemplateExpression).tag.getText() ===
-                config.tags.sql,
+              (n as tss.TaggedTemplateExpression).tag &&
+              (n as tss.TaggedTemplateExpression).tag.getText() === config.tags.sql,
           ) as any;
 
+          console.log('###5')
+          console.log('###5', nodes.length)
           const explain_rss = nodes.map(n => {
+            console.log('###5')
             const make_diagnostic = (
               code: any,
               category: any,
@@ -59,7 +66,8 @@ export function create(info: tss.server.PluginCreateInfo): tss.LanguageService {
               category,
               messageText,
             });
-            // one sql`select * from person ${xxx ? sql.raw`aaa` : sql.raw`bbb`}` may generate two sqls, need to be explained one by one
+            // one sql`select * from person ${xxx ? sql.raw`aaa` : sql.rakw`bbb`}` may generate two sqls, need to be explained one by one
+            console.log('###6')
             let query_configs = fake_expression(n);
             for (const qc of query_configs) {
               let s = qc.text.replace(/\?\?/gm, 'null');
@@ -67,7 +75,11 @@ export function create(info: tss.server.PluginCreateInfo): tss.LanguageService {
                 config.command[0],
                 config.command.slice(1).concat(`EXPLAIN ${s}`),
               );
+              console.log('###7')
+              console.error((p.stderr.toString as any)('utf8'));
               if (p.status) {
+                console.log('###8')
+
                 return make_diagnostic(
                   1,
                   tss.DiagnosticCategory.Error,
